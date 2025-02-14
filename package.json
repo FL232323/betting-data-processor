@@ -1,0 +1,11 @@
+{
+  "name": "betting-data-processor",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "papaparse": "^5.4.1",
+    "@anthropic-ai/sdk": "^0.32.1"
+  }
+}
