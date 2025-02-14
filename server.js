@@ -1,8 +1,14 @@
-const express = require('express');
-const multer = require('multer');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import multer from 'multer';
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 
 // Create uploads directory if it doesn't exist
