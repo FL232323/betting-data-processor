@@ -1,93 +1,151 @@
 import pandas as pd
 import re
+from datetime import datetime
 
-def transform_betting_data(file_path):
-    print("Reading CSV file...")
-    df = pd.read_csv(file_path)
-    
-    # Get the column names from the first 13 rows
-    column_names = ['Date Placed'] + df['Data'].iloc[0:12].tolist()
-    print(f"Found {len(column_names)} column names")
-    
-    transformed_rows = []
-    i = 13  # Start after the header rows
-    
-    while i < len(df):
-        curr_value = df['Data'].iloc[i]
-        
-        # Check if this is a parent bet (contains @)
-        if isinstance(curr_value, str) and '@' in curr_value:
-            print(f"Processing bet starting at row {i}")
-            
-            # Count expected legs from the Match row (3 rows after parent start)
-            match_row = df['Data'].iloc[i+3]  # Row with repeated games
-            expected_legs = match_row.count('vs') if isinstance(match_row, str) else 0
-            print(f"Expecting {expected_legs} legs based on game count")
-            
-            # Collect parent bet values (13 rows)
-            parent_values = []
-            for j in range(13):
-                if i + j < len(df):
-                    parent_values.append(df['Data'].iloc[i + j])
+class BetProcessor:
+    def __init__(self):
+        self.headers = None
+        self.single_bets_df = pd.DataFrame()
+        self.parlay_headers_df = pd.DataFrame()
+        self.parlay_legs_df = pd.DataFrame()
+
+    def is_date(self, value):
+        """Check if a value matches the date format: D MMM YYYY @ H:MMam/pm"""
+        date_pattern = r'\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+@\s+\d{1,2}:\d{2}(?:am|pm)'
+        return bool(re.match(date_pattern, str(value)))
+
+    def is_bet_id(self, value):
+        """Check if a value is a 19-digit bet ID"""
+        return bool(re.match(r'^\d{19}$', str(value).strip()))
+
+    def process_csv(self, filepath):
+        """Process the single-column CSV file"""
+        # Read the file with a single column
+        df = pd.read_csv(filepath, header=None, names=['Data'])
+        data = df['Data'].tolist()
+
+        # First 13 rows are headers
+        self.headers = data[:13]
+        current_position = 13  # Start after headers
+
+        while current_position < len(data):
+            # Look for a date which starts a new bet
+            if self.is_date(data[current_position]):
+                # Collect the next 13 values (main bet info)
+                bet_info = data[current_position:current_position + 13]
+                current_position += 13
+
+                if current_position >= len(data):
+                    break
+
+                # Check if this is a parlay by looking for "MULTIPLE"
+                if "MULTIPLE" in bet_info:
+                    # This is a parlay
+                    if current_position < len(data) and self.is_bet_id(data[current_position]):
+                        bet_id = data[current_position]
+                        current_position += 1
+                        current_position = self._process_parlay(bet_info, bet_id, data, current_position)
+                    else:
+                        current_position = self._process_parlay(bet_info, bet_info[-1], data, current_position)
                 else:
-                    parent_values.append('')
+                    # This is a single bet
+                    self._process_single_bet(bet_info)
+            else:
+                current_position += 1
+
+    def _process_single_bet(self, bet_info):
+        """Process a single bet entry"""
+        if len(bet_info) == 13:
+            bet_dict = dict(zip(self.headers, bet_info))
+            self.single_bets_df = pd.concat([
+                self.single_bets_df,
+                pd.DataFrame([bet_dict])
+            ], ignore_index=True)
+
+    def _process_parlay(self, bet_info, bet_id, data, current_position):
+        """Process a parlay bet and its legs"""
+        # Add parlay header
+        bet_dict = dict(zip(self.headers, bet_info))
+        bet_dict['Bet Slip ID'] = bet_id
+        self.parlay_headers_df = pd.concat([
+            self.parlay_headers_df,
+            pd.DataFrame([bet_dict])
+        ], ignore_index=True)
+
+        # Count expected legs from Match field (commas + 1)
+        num_legs = bet_dict['Match'].count(',') + 1 if isinstance(bet_dict['Match'], str) else 0
+        leg_num = 1
+
+        # Process legs
+        while leg_num <= num_legs and current_position + 7 <= len(data):
+            # Each leg has 7 pieces of information
+            leg_data = data[current_position:current_position + 7]
             
-            transformed_rows.append(parent_values)
-            i += 13  # Move past parent bet
-            
-            # Process each leg (8 rows per leg)
-            for leg in range(expected_legs):
-                leg_values = []
-                if leg == 0:  # First leg starts at Status
-                    leg_values = ['']  # Empty Date Placed
-                    for j in range(7):  # Get next 7 values
-                        if i + j < len(df):
-                            leg_values.append(df['Data'].iloc[i + j])
-                else:  # Subsequent legs include Date Placed
-                    for j in range(8):  # Get all 8 values
-                        if i + j < len(df):
-                            leg_values.append(df['Data'].iloc[i + j])
-                
-                # Pad to 13 columns if needed
-                while len(leg_values) < 13:
-                    leg_values.append('')
-                
-                transformed_rows.append(leg_values)
-                i += 8  # Move to next leg
-            
-            print(f"Processed {expected_legs} legs for this parlay")
-        else:
-            i += 1
-    
-    print(f"Creating final DataFrame with {len(transformed_rows)} rows")
-    result_df = pd.DataFrame(transformed_rows, columns=column_names)
-    
-    # Save to separate CSV files for display
-    singles = result_df[~result_df['Bet Type'].str.contains('MULTIPLE', na=False)]
-    parlays = result_df[result_df['Bet Type'].str.contains('MULTIPLE', na=False)]
-    legs = result_df[result_df['Date Placed'].isna()]
-    
-    singles.to_csv('single_bets.csv', index=False)
-    parlays.to_csv('parlay_headers.csv', index=False)
-    legs.to_csv('parlay_legs.csv', index=False)
-    
-    return result_df
+            # Check if we've hit the next bet (indicated by a date)
+            if self.is_date(leg_data[0]):
+                break
+
+            leg_dict = {
+                'Parlay_ID': bet_id,
+                'Leg_Number': leg_num,
+                'Status': leg_data[0],
+                'League': leg_data[1],
+                'Match': leg_data[2],
+                'Market': leg_data[3],
+                'Selection': leg_data[4],
+                'Price': leg_data[5],
+                'Game_Date': leg_data[6]
+            }
+
+            self.parlay_legs_df = pd.concat([
+                self.parlay_legs_df,
+                pd.DataFrame([leg_dict])
+            ], ignore_index=True)
+
+            current_position += 7
+            leg_num += 1
+
+        return current_position
+
+    def save_to_csv(self, output_directory="."):
+        """Save all DataFrames to separate CSV files"""
+        # Convert numeric columns in parlay_headers_df
+        numeric_columns = ['Price', 'Wager', 'Winnings', 'Payout', 'Potential Payout']
+        for col in numeric_columns:
+            if col in self.parlay_headers_df.columns:
+                self.parlay_headers_df[col] = pd.to_numeric(self.parlay_headers_df[col], errors='coerce')
+
+        # Save files
+        single_bets_path = f"{output_directory}/single_bets.csv"
+        self.single_bets_df.to_csv(single_bets_path, index=False)
+        
+        parlay_headers_path = f"{output_directory}/parlay_headers.csv"
+        self.parlay_headers_df.to_csv(parlay_headers_path, index=False)
+        
+        parlay_legs_path = f"{output_directory}/parlay_legs.csv"
+        self.parlay_legs_df.to_csv(parlay_legs_path, index=False)
+        
+        return {
+            'single_bets': single_bets_path,
+            'parlay_headers': parlay_headers_path,
+            'parlay_legs': parlay_legs_path
+        }
 
 def process_betting_data(input_csv, output_directory="."):
-    try:
-        print("Starting transformation...")
-        df = transform_betting_data(input_csv)
-        print("Transformation complete!")
-        return {
-            'single_bets': 'single_bets.csv',
-            'parlay_headers': 'parlay_headers.csv',
-            'parlay_legs': 'parlay_legs.csv'
-        }
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        raise
+    processor = BetProcessor()
+    processor.process_csv(input_csv)
+    file_paths = processor.save_to_csv(output_directory)
+    
+    print(f"Processed {len(processor.single_bets_df)} single bets")
+    print(f"Processed {len(processor.parlay_headers_df)} parlays")
+    print(f"Processed {len(processor.parlay_legs_df)} parlay legs")
+    print("\nFiles created:")
+    for file_type, path in file_paths.items():
+        print(f"- {file_type}: {path}")
+    
+    return processor
 
 if __name__ == "__main__":
     input_file = "converted_dates.csv"
     output_dir = "."
-    process_betting_data(input_file, output_dir)
+    processor = process_betting_data(input_file, output_dir)
