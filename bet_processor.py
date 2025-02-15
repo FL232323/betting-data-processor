@@ -18,19 +18,27 @@ class BetProcessor:
         """Check if a value is a 19-digit bet ID"""
         return bool(re.match(r'^\d{19}$', str(value).strip()))
 
+    def count_expected_legs(self, match_str):
+        """Count expected legs from match string based on 'vs' occurrences"""
+        if isinstance(match_str, str):
+            return match_str.count('vs')
+        return 0
+
     def process_csv(self, filepath):
         """Process the single-column CSV file"""
-        # Read the file with a single column
+        print("Reading CSV file...")
         df = pd.read_csv(filepath, header=None, names=['Data'])
         data = df['Data'].tolist()
 
         # First 13 rows are headers
         self.headers = data[:13]
         current_position = 13  # Start after headers
+        print(f"Found {len(self.headers)} headers")
 
         while current_position < len(data):
             # Look for a date which starts a new bet
             if self.is_date(data[current_position]):
+                print(f"Processing bet starting at row {current_position}")
                 # Collect the next 13 values (main bet info)
                 bet_info = data[current_position:current_position + 13]
                 current_position += 13
@@ -39,45 +47,54 @@ class BetProcessor:
                     break
 
                 # Check if this is a parlay by looking for "MULTIPLE"
-                if "MULTIPLE" in bet_info:
-                    # This is a parlay
+                if "MULTIPLE" in str(bet_info):
+                    print("Found parlay bet")
                     if current_position < len(data) and self.is_bet_id(data[current_position]):
                         bet_id = data[current_position]
                         current_position += 1
-                        current_position = self._process_parlay(bet_info, bet_id, data, current_position)
                     else:
-                        current_position = self._process_parlay(bet_info, bet_info[-1], data, current_position)
+                        bet_id = bet_info[-1]
+
+                    expected_legs = self.count_expected_legs(bet_info[3])  # Match field
+                    print(f"Expecting {expected_legs} legs based on game count")
+                    
+                    current_position = self._process_parlay(bet_info, bet_id, data, current_position, expected_legs)
                 else:
-                    # This is a single bet
+                    print("Processing single bet")
                     self._process_single_bet(bet_info)
             else:
                 current_position += 1
+
+        print(f"Processed {len(self.single_bets_df)} single bets")
+        print(f"Processed {len(self.parlay_headers_df)} parlays")
+        print(f"Processed {len(self.parlay_legs_df)} parlay legs")
 
     def _process_single_bet(self, bet_info):
         """Process a single bet entry"""
         if len(bet_info) == 13:
             bet_dict = dict(zip(self.headers, bet_info))
+            # Clean any empty or whitespace-only values
+            bet_dict = {k: v.strip() if isinstance(v, str) else v for k, v in bet_dict.items()}
             self.single_bets_df = pd.concat([
                 self.single_bets_df,
                 pd.DataFrame([bet_dict])
             ], ignore_index=True)
 
-    def _process_parlay(self, bet_info, bet_id, data, current_position):
+    def _process_parlay(self, bet_info, bet_id, data, current_position, expected_legs):
         """Process a parlay bet and its legs"""
         # Add parlay header
         bet_dict = dict(zip(self.headers, bet_info))
         bet_dict['Bet Slip ID'] = bet_id
+        # Clean any empty or whitespace-only values
+        bet_dict = {k: v.strip() if isinstance(v, str) else v for k, v in bet_dict.items()}
         self.parlay_headers_df = pd.concat([
             self.parlay_headers_df,
             pd.DataFrame([bet_dict])
         ], ignore_index=True)
 
-        # Count expected legs from Match field (commas + 1)
-        num_legs = bet_dict['Match'].count(',') + 1 if isinstance(bet_dict['Match'], str) else 0
         leg_num = 1
-
         # Process legs
-        while leg_num <= num_legs and current_position + 7 <= len(data):
+        while leg_num <= expected_legs and current_position + 7 <= len(data):
             # Each leg has 7 pieces of information
             leg_data = data[current_position:current_position + 7]
             
@@ -97,6 +114,8 @@ class BetProcessor:
                 'Game_Date': leg_data[6]
             }
 
+            # Clean any empty or whitespace-only values
+            leg_dict = {k: v.strip() if isinstance(v, str) else v for k, v in leg_dict.items()}
             self.parlay_legs_df = pd.concat([
                 self.parlay_legs_df,
                 pd.DataFrame([leg_dict])
@@ -109,11 +128,16 @@ class BetProcessor:
 
     def save_to_csv(self, output_directory="."):
         """Save all DataFrames to separate CSV files"""
-        # Convert numeric columns in parlay_headers_df
+        # Convert numeric columns
         numeric_columns = ['Price', 'Wager', 'Winnings', 'Payout', 'Potential Payout']
-        for col in numeric_columns:
-            if col in self.parlay_headers_df.columns:
-                self.parlay_headers_df[col] = pd.to_numeric(self.parlay_headers_df[col], errors='coerce')
+        
+        for df in [self.single_bets_df, self.parlay_headers_df]:
+            for col in numeric_columns:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col].str.replace('$', '').str.replace(',', ''), errors='coerce')
+
+        if 'Price' in self.parlay_legs_df.columns:
+            self.parlay_legs_df['Price'] = pd.to_numeric(self.parlay_legs_df['Price'], errors='coerce')
 
         # Save files
         single_bets_path = f"{output_directory}/single_bets.csv"
@@ -135,17 +159,12 @@ def process_betting_data(input_csv, output_directory="."):
     processor = BetProcessor()
     processor.process_csv(input_csv)
     file_paths = processor.save_to_csv(output_directory)
-    
-    print(f"Processed {len(processor.single_bets_df)} single bets")
-    print(f"Processed {len(processor.parlay_headers_df)} parlays")
-    print(f"Processed {len(processor.parlay_legs_df)} parlay legs")
-    print("\nFiles created:")
-    for file_type, path in file_paths.items():
-        print(f"- {file_type}: {path}")
-    
     return processor
 
 if __name__ == "__main__":
-    input_file = "converted_dates.csv"
-    output_dir = "."
-    processor = process_betting_data(input_file, output_dir)
+    try:
+        print("Starting transformation...")
+        processor = process_betting_data("converted_dates.csv")
+        print("Transformation complete!")
+    except Exception as e:
+        print(f"Error: {str(e)}")
