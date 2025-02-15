@@ -1,6 +1,4 @@
 import pandas as pd
-import re
-from datetime import datetime
 
 def transform_betting_data(file_path):
     print("Reading CSV file...")
@@ -18,7 +16,12 @@ def transform_betting_data(file_path):
         
         # Check if this is a parent bet (contains @)
         if isinstance(curr_value, str) and '@' in curr_value:
-            print(f"Processing bet starting at row {i}")
+            print(f"Processing parlay starting at row {i}")
+            
+            # Count expected legs from the Match row (3 rows after parent start)
+            match_row = df['Date Placed'].iloc[i+3]  # Row with repeated games
+            expected_legs = match_row.count('vs') if isinstance(match_row, str) else 0
+            print(f"Expecting {expected_legs} legs based on game count")
             
             # Collect parent bet values (13 rows)
             parent_values = []
@@ -28,41 +31,30 @@ def transform_betting_data(file_path):
                 else:
                     parent_values.append('')
             
-            # Check if this is a parlay by looking at the Match field
-            match_row = df['Date Placed'].iloc[i+3]  # Match field is 4th row
-            if isinstance(match_row, str) and ',' in match_row:
-                print("Found parlay")
-                expected_legs = match_row.count(',') + 1
-                print(f"Expecting {expected_legs} legs based on comma count")
+            transformed_rows.append(parent_values)
+            i += 13  # Move past parent bet
+            
+            # Process each leg (8 rows per leg)
+            for leg in range(expected_legs):
+                leg_values = []
+                if leg == 0:  # First leg starts at Status
+                    leg_values = ['']  # Empty Date Placed
+                    for j in range(7):  # Get next 7 values
+                        if i + j < len(df):
+                            leg_values.append(df['Date Placed'].iloc[i + j])
+                else:  # Subsequent legs include Date Placed
+                    for j in range(8):  # Get all 8 values
+                        if i + j < len(df):
+                            leg_values.append(df['Date Placed'].iloc[i + j])
                 
-                transformed_rows.append(parent_values)
-                i += 13  # Move past parent bet
+                # Pad to 13 columns if needed
+                while len(leg_values) < 13:
+                    leg_values.append('')
                 
-                # Process each leg
-                for leg in range(expected_legs):
-                    leg_values = []
-                    if leg == 0:  # First leg starts at Status
-                        leg_values = ['']  # Empty Date Placed
-                        for j in range(7):  # Get next 7 values
-                            if i + j < len(df):
-                                leg_values.append(df['Date Placed'].iloc[i + j])
-                    else:  # Subsequent legs include Date Placed
-                        for j in range(8):  # Get all 8 values
-                            if i + j < len(df):
-                                leg_values.append(df['Date Placed'].iloc[i + j])
-                    
-                    # Pad to 13 columns if needed
-                    while len(leg_values) < 13:
-                        leg_values.append('')
-                    
-                    transformed_rows.append(leg_values)
-                    i += 8  # Move to next leg
-                
-                print(f"Processed {expected_legs} legs")
-            else:
-                print("Found single bet")
-                transformed_rows.append(parent_values)
-                i += 13  # Move past single bet
+                transformed_rows.append(leg_values)
+                i += 8  # Move to next leg
+            
+            print(f"Processed {expected_legs} legs for this parlay")
         else:
             i += 1
     
@@ -74,19 +66,19 @@ if __name__ == "__main__":
     try:
         print("Starting transformation...")
         df = transform_betting_data('converted_dates.csv')
-        print("Saving to CSV files...")
+        print("Saving to CSV...")
+        df.to_csv('transformed_betting_data.csv', index=False)
         
-        # Split into singles, parlays, and legs
+        # Split into the three files
         singles = []
         parlays = []
         legs = []
         
         for i, row in df.iterrows():
-            bet_type = row['Bet Type']
-            if pd.isna(bet_type) or pd.isna(row['Date Placed']):
+            if pd.isna(row['Date Placed']):
                 # This is a leg
                 legs.append(row)
-            elif bet_type == 'MULTIPLE':
+            elif 'MULTIPLE' in str(row['Bet Type']):
                 # This is a parlay header
                 parlays.append(row)
             else:
