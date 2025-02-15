@@ -1,6 +1,22 @@
 import fs from 'fs';
 import XLSX from 'xlsx';
 
+const EXPECTED_HEADERS = [
+    'Date Placed',
+    'Status',
+    'League',
+    'Match',
+    'Bet Type',
+    'Market',
+    'Price',
+    'Wager',
+    'Winnings',
+    'Payout',
+    'Potential Payout',
+    'Result',
+    'Bet Slip ID'
+];
+
 const processXLSFile = () => {
     try {
         console.log("Reading XLS file...");
@@ -24,31 +40,39 @@ const processXLSFile = () => {
         });
 
         console.log("Cleaning XML formatting...");
-        // Clean each cell of XML tags and whitespace
-        const cleanedData = rawData
-            .map(row => {
-                if (!row || row.length === 0) return null;
-                
-                // Get first non-empty cell from each row
-                const cellValue = row.find(cell => cell && cell.toString().trim() !== '');
-                if (!cellValue) return null;
+        // First, write the headers
+        const cleanedData = [...EXPECTED_HEADERS];
 
-                // Remove XML tags and clean whitespace
-                return cellValue.toString()
-                    .replace(/<[^>]*>/g, '')  // Remove XML tags
-                    .replace(/^"(.*)"$/, '$1') // Remove outer quotes
-                    .trim();
-            })
-            .filter(row => row !== null && row !== '');
+        // Then process each row
+        let currentValue = '';
+        
+        for (let row of rawData) {
+            if (!row || row.length === 0) continue;
+            
+            // Get first non-empty cell from each row
+            const cellValue = row.find(cell => cell && cell.toString().trim() !== '');
+            if (!cellValue) continue;
 
-        console.log("Processed rows:", cleanedData.length);
+            // Clean the value
+            const cleanValue = cellValue.toString()
+                .replace(/<[^>]*>/g, '')  // Remove XML tags
+                .replace(/^"(.*)"$/, '$1') // Remove outer quotes
+                .trim();
 
+            if (cleanValue && !cleanValue.includes('xml') && !cleanValue.includes('Workbook') && 
+                !cleanValue.includes('Worksheet') && !cleanValue.includes('Table')) {
+                cleanedData.push(cleanValue);
+            }
+        }
+
+        console.log("Writing to CSV...");
         // Write to CSV
         fs.writeFileSync('converted_dates.csv', cleanedData.join('\n'));
         
-        // Debug: Show first few rows
-        console.log("\nFirst few rows of output:");
+        // Debug output
+        console.log("\nFirst few rows:");
         console.log(cleanedData.slice(0, 15).join('\n'));
+        console.log(`\nTotal rows: ${cleanedData.length}`);
 
     } catch (error) {
         console.error('Error processing file:', error);
