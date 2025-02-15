@@ -1,65 +1,108 @@
 import fs from 'fs';
 import XLSX from 'xlsx';
 
+const EXPECTED_HEADERS = [
+    'Date Placed',
+    'Status',
+    'League',
+    'Match',
+    'Bet Type',
+    'Market',
+    'Price',
+    'Wager',
+    'Winnings',
+    'Payout',
+    'Potential Payout',
+    'Result',
+    'Bet Slip ID'
+];
+
 const processXLSFile = () => {
     try {
         console.log("Reading XLS file...");
         
-        // Step 1: Read XLS (like opening in Numbers)
+        // Read the XLS file with full options
         const workbook = XLSX.readFile('All_Bets_Export.xls', {
             cellDates: true,
             cellNF: true,
-            cellText: true
+            cellText: true,
+            raw: true
         });
-        
-        // Step 2: Get first sheet
+
+        // Get the first sheet
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         
-        // Step 3: Convert to array (like copying to Google Sheets)
+        // Convert to array format
         const data = XLSX.utils.sheet_to_json(worksheet, {
             header: 1,
+            raw: false,
             defval: ''
         });
-        
-        // Step 4: Extract Column A (like your filter step)
-        const columnA = [];
-        
-        console.log("Processing worksheet...");
-        for (let row of data) {
-            if (row && row[0]) {  // Only get Column A (first column)
-                let value = row[0].toString().trim();
-                
-                // Clean XML tags
-                value = value
-                    .replace(/<ss:Row>/g, '')
-                    .replace(/<\/ss:Row>/g, '')
-                    .replace(/<ss:Cell>/g, '')
-                    .replace(/<\/ss:Cell>/g, '')
-                    .replace(/<ss:Data ss:Type="String">/g, '')
-                    .replace(/<\/ss:Data>/g, '')
-                    .replace(/^"(.*)"$/, '$1')
-                    .trim();
-                
-                // Skip XML-related content
-                if (!value.includes('<?xml') && 
-                    !value.includes('Workbook') && 
-                    !value.includes('Worksheet') && 
-                    !value.includes('Table') &&
-                    value.length > 0) {
-                    columnA.push(value);
+
+        let currentRow = [];
+        const processedRows = [];
+
+        // Process each row
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length === 0) continue;
+
+            // Get first cell value
+            let firstCell = '';
+            for (let cell of row) {
+                if (cell) {
+                    firstCell = cell.toString()
+                        .replace(/<[^>]*>/g, '')   // Remove XML tags
+                        .replace(/^"(.*)"$/, '$1')  // Remove wrapping quotes
+                        .trim();
+                    break;
                 }
             }
+
+            if (!firstCell) continue;
+
+            // Skip XML metadata
+            if (firstCell.includes('<?xml') || 
+                firstCell.includes('Workbook') || 
+                firstCell.includes('Worksheet') || 
+                firstCell.includes('Table')) {
+                continue;
+            }
+
+            // Clean row data
+            const cleanRow = row.map(cell => {
+                if (!cell) return '';
+                return cell.toString()
+                    .replace(/<[^>]*>/g, '')
+                    .replace(/^"(.*)"$/, '$1')
+                    .trim();
+            });
+
+            // Get first non-empty value
+            const firstValue = cleanRow.find(cell => cell) || '';
+
+            // Add to current row collection
+            currentRow.push(firstValue);
+
+            // If we have 13 values, this is a complete row
+            if (currentRow.length === 13) {
+                processedRows.push(currentRow);
+                currentRow = [];
+            }
         }
+
+        // Write headers and data
+        const csvContent = [
+            EXPECTED_HEADERS.join(','),
+            ...processedRows.map(row => row.join(','))
+        ].join('\n');
+
+        fs.writeFileSync('converted_dates.csv', csvContent);
         
-        console.log(`Processed ${columnA.length} rows`);
-        
-        // Write clean CSV
-        fs.writeFileSync('converted_dates.csv', columnA.join('\n'));
-        
-        // Debug: Show first few entries
-        console.log("\nFirst few entries:");
-        console.log(columnA.slice(0, 15).join('\n'));
-        
+        console.log(`Processed ${processedRows.length} rows`);
+        console.log("\nFirst few rows:");
+        console.log(csvContent.split('\n').slice(0, 3).join('\n'));
+
     } catch (error) {
         console.error('Error processing file:', error);
         throw error;
