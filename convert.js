@@ -1,27 +1,11 @@
 import fs from 'fs';
 import XLSX from 'xlsx';
 
-const EXPECTED_HEADERS = [
-    'Date Placed',
-    'Status',
-    'League',
-    'Match',
-    'Bet Type',
-    'Market',
-    'Price',
-    'Wager',
-    'Winnings',
-    'Payout',
-    'Potential Payout',
-    'Result',
-    'Bet Slip ID'
-];
-
 const processXLSFile = () => {
     try {
         console.log("Reading XLS file...");
         
-        // Read the XLS file with full options
+        // Read the XLS file
         const workbook = XLSX.readFile('All_Bets_Export.xls', {
             cellDates: true,
             cellNF: true,
@@ -29,80 +13,91 @@ const processXLSFile = () => {
             raw: true
         });
 
-        // Get the first sheet
+        // Get first sheet
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         
-        // Convert to array format
-        const data = XLSX.utils.sheet_to_json(worksheet, {
-            header: 1,
-            raw: false,
-            defval: ''
-        });
-
+        // Initialize arrays for collecting data
+        let rows = [];
         let currentRow = [];
-        const processedRows = [];
-
+        
+        // Get the range of the sheet
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        
         // Process each row
-        for (let i = 0; i < data.length; i++) {
-            const row = data[i];
-            if (!row || row.length === 0) continue;
-
-            // Get first cell value
-            let firstCell = '';
-            for (let cell of row) {
-                if (cell) {
-                    firstCell = cell.toString()
-                        .replace(/<[^>]*>/g, '')   // Remove XML tags
-                        .replace(/^"(.*)"$/, '$1')  // Remove wrapping quotes
-                        .trim();
-                    break;
+        for(let R = range.s.r; R <= range.e.r; R++) {
+            let firstCellValue = '';
+            
+            // Get all cells in this row
+            let rowData = [];
+            for(let C = 0; C <= 12; C++) {  // We want 13 columns (0-12)
+                const cellAddress = XLSX.utils.encode_cell({r: R, c: C});
+                const cell = worksheet[cellAddress];
+                
+                if(!cell || !cell.v) {
+                    rowData.push('');
+                    continue;
                 }
-            }
-
-            if (!firstCell) continue;
-
-            // Skip XML metadata
-            if (firstCell.includes('<?xml') || 
-                firstCell.includes('Workbook') || 
-                firstCell.includes('Worksheet') || 
-                firstCell.includes('Table')) {
-                continue;
-            }
-
-            // Clean row data
-            const cleanRow = row.map(cell => {
-                if (!cell) return '';
-                return cell.toString()
-                    .replace(/<[^>]*>/g, '')
-                    .replace(/^"(.*)"$/, '$1')
+                
+                // Clean the cell value
+                let value = cell.v.toString()
+                    .replace(/<[^>]*>/g, '')   // Remove XML tags
                     .trim();
-            });
-
-            // Get first non-empty value
-            const firstValue = cleanRow.find(cell => cell) || '';
-
-            // Add to current row collection
-            currentRow.push(firstValue);
-
-            // If we have 13 values, this is a complete row
-            if (currentRow.length === 13) {
-                processedRows.push(currentRow);
-                currentRow = [];
+                
+                // Store first non-empty cell value
+                if(C === 0 && value) {
+                    firstCellValue = value;
+                }
+                
+                // If the cell contains commas and it's the Match column (index 3)
+                // wrap it in quotes to preserve the commas
+                if(C === 3 && value.includes(',')) {
+                    value = `"${value}"`;
+                }
+                
+                rowData.push(value);
+            }
+            
+            // Skip rows with XML-related content
+            if(firstCellValue && 
+               !firstCellValue.includes('<?xml') && 
+               !firstCellValue.includes('Workbook') && 
+               !firstCellValue.includes('Worksheet') && 
+               !firstCellValue.includes('Table')) {
+                rows.push(rowData);
             }
         }
 
-        // Write headers and data
+        // Headers for the CSV
+        const headers = [
+            'Date Placed',
+            'Status',
+            'League',
+            'Match',
+            'Bet Type',
+            'Market',
+            'Price',
+            'Wager',
+            'Winnings',
+            'Payout',
+            'Potential Payout',
+            'Result',
+            'Bet Slip ID'
+        ];
+
+        // Combine headers and data
         const csvContent = [
-            EXPECTED_HEADERS.join(','),
-            ...processedRows.map(row => row.join(','))
+            headers.join(','),
+            ...rows.map(row => row.join(','))
         ].join('\n');
 
+        // Write to file
         fs.writeFileSync('converted_dates.csv', csvContent);
         
-        console.log(`Processed ${processedRows.length} rows`);
+        console.log("Conversion complete");
+        console.log(`Processed ${rows.length} rows`);
         console.log("\nFirst few rows:");
-        console.log(csvContent.split('\n').slice(0, 3).join('\n'));
-
+        console.log(csvContent.split('\n').slice(0, 5).join('\n'));
+        
     } catch (error) {
         console.error('Error processing file:', error);
         throw error;
