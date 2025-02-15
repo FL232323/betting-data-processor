@@ -1,44 +1,99 @@
 import fs from 'fs';
-import Papa from 'papaparse';
+import XLSX from 'xlsx';
 
-async function convertXMLtoCSV(inputFile, outputFile) {
-  try {
-    const xmlContent = await fs.promises.readFile(inputFile, 'utf8');
-    
-    // Improved regex to handle quotes and commas in data
-    const dateRegex = /<ss:Data ss:Type="String">(.*?)<\/ss:Data>/g;
-    const matches = [];
-    let match;
-    
-    while ((match = dateRegex.exec(xmlContent)) !== null) {
-      // Handle special characters and escape quotes
-      let value = match[1].trim();
-      value = value.replace(/"/g, '""'); // Escape quotes
-      if (value.includes(',')) {
-        value = `"${value}"`; // Wrap in quotes if contains comma
-      }
-      if (value) {
-        matches.push([value]);
-      }
+const processXLSFile = () => {
+    try {
+        // Read the XLS file
+        const workbook = XLSX.readFile('All_Bets_Export.xls', {
+            cellDates: true,
+            cellNF: true,
+            cellText: true
+        });
+
+        // Get first sheet
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        
+        // Convert to CSV string
+        const csvString = XLSX.utils.sheet_to_csv(worksheet);
+        
+        // Split into lines and clean
+        const lines = csvString.split(/\r?\n/)
+            .map(line => line.split(',')[0].trim())
+            .filter(line => line)
+            .filter(line => line !== ",,,,,,"); // Remove empty comma lines
+        
+        const bets = [];
+        let currentBet = null;
+        let inHeader = true;
+        
+        // Process each line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].replace(/^"(.*)"$/, '$1').trim();
+            
+            // Skip the header section
+            if (inHeader && line === 'Bet Slip ID') {
+                inHeader = false;
+                continue;
+            }
+            
+            // If we see a date, start a new bet
+            if (line.match(/\d+\s+[A-Za-z]{3}\s+\d{4}\s+@\s+\d+:\d+[ap]m/i)) {
+                if (currentBet) {
+                    bets.push(currentBet);
+                }
+                currentBet = {
+                    'Date Placed': line,
+                    'Status': '',
+                    'League': '',
+                    'Match': '',
+                    'Bet Type': '',
+                    'Market': '',
+                    'Price': '',
+                    'Wager': '',
+                    'Winnings': '',
+                    'Payout': '',
+                    'Potential Payout': '',
+                    'Result': '',
+                    'Bet Slip ID': ''
+                };
+                continue;
+            }
+            
+            // If we have a current bet, add the next piece of information
+            if (currentBet) {
+                const emptyField = Object.entries(currentBet)
+                    .find(([key, value]) => value === '');
+                
+                if (emptyField) {
+                    currentBet[emptyField[0]] = line;
+                }
+            }
+        }
+        
+        // Add the last bet
+        if (currentBet) {
+            bets.push(currentBet);
+        }
+
+        // Convert to CSV format
+        const csvData = bets.map(bet => 
+            Object.values(bet).map(value => 
+                value.includes(',') ? `"${value}"` : value
+            ).join(',')
+        );
+
+        // Add header
+        csvData.unshift(Object.keys(bets[0]).join(','));
+
+        // Write to file
+        fs.writeFileSync('converted_dates.csv', csvData.join('\n'));
+        
+        console.log(`Processed ${bets.length} bets`);
+        
+    } catch (error) {
+        console.error('Error processing file:', error);
+        throw error;
     }
-    
-    // Convert to CSV using Papa Parse with proper escaping
-    const csv = Papa.unparse(matches, {
-      delimiter: ",",
-      newline: "\n",
-      escapeFormulae: true,
-      quotes: true
-    });
-    
-    await fs.promises.writeFile(outputFile, csv);
-    console.log(`Successfully converted ${matches.length} rows`);
-    
-  } catch (error) {
-    console.error('Error processing file:', error);
-  }
-}
+};
 
-const inputFile = 'All_Bets_Export.xls';
-const outputFile = 'converted_dates.csv';
-
-convertXMLtoCSV(inputFile, outputFile);
+processXLSFile();
