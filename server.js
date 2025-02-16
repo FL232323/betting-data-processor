@@ -55,7 +55,7 @@ app.post('/process', upload.single('file'), (req, res) => {
                 const playerStats = await fs.promises.readFile('player_stats.csv', 'utf8');
                 const propStats = await fs.promises.readFile('prop_stats.csv', 'utf8');
 
-                // Parse CSVs using Papa Parse
+                // Parse CSVs using Papa Parse with dynamic typing
                 const data = {
                     singles: parseCSV(singles),
                     parlays: parseCSV(parlays),
@@ -131,31 +131,31 @@ function calculateStats(singles, parlays, teamStats, playerStats, propStats) {
         propPerformance: {}
     };
 
-    // Add team performance
+    // Add team performance (keeping absolute counts)
     teamStats.forEach(team => {
         stats.teamPerformance[team.Team] = {
-            wins: team.Wins,
-            losses: team.Losses,
-            totalBets: team.Total_Bets
+            wins: parseInt(team.Wins),
+            losses: parseInt(team.Losses),
+            totalBets: parseInt(team.Total_Bets)
         };
     });
 
-    // Add player performance
+    // Add player performance (keeping absolute counts)
     playerStats.forEach(player => {
         stats.playerPerformance[player.Player] = {
-            wins: player.Wins,
-            losses: player.Losses,
-            totalBets: player.Total_Bets,
+            wins: parseInt(player.Wins),
+            losses: parseInt(player.Losses),
+            totalBets: parseInt(player.Total_Bets),
             propTypes: player.Prop_Types
         };
     });
 
-    // Add prop performance
+    // Add prop performance (keeping absolute counts)
     propStats.forEach(prop => {
         stats.propPerformance[prop.PropType] = {
-            wins: prop.Wins,
-            losses: prop.Losses,
-            totalBets: prop.Total_Bets
+            wins: parseInt(prop.Wins),
+            losses: parseInt(prop.Losses),
+            totalBets: parseInt(prop.Total_Bets)
         };
     });
 
