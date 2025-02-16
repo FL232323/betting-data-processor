@@ -8,6 +8,15 @@ document.addEventListener('DOMContentLoaded', () => {
     tooltipTriggerList.map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 });
 
+// Odds conversion function
+function decimalToAmerican(decimal) {
+    if (decimal >= 2.0) {
+        return Math.round((decimal - 1) * 100);
+    } else {
+        return Math.round(-100 / (decimal - 1));
+    }
+}
+
 // File handling functions
 function initializeFileHandling() {
     dropZone.addEventListener('click', () => {
@@ -114,7 +123,7 @@ function populateTable(tableId, data) {
         const tr = document.createElement('tr');
         columns.forEach(column => {
             const td = document.createElement('td');
-            td.textContent = formatValue(row[column], column);
+            td.textContent = formatValue(row[column], column, tableId);
             tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -122,9 +131,19 @@ function populateTable(tableId, data) {
     table.appendChild(tbody);
 }
 
-function formatValue(value, columnName) {
+function formatValue(value, columnName, tableId) {
     if (value === null || value === undefined) return '-';
     
+    // Handle Price column specifically for betting tables
+    if (columnName === 'Price') {
+        const bettingTables = ['singlesTable', 'parlaysTable', 'legsTable'];
+        if (bettingTables.includes(tableId)) {
+            const americanOdds = decimalToAmerican(value);
+            return americanOdds > 0 ? `+${americanOdds}` : americanOdds.toString();
+        }
+        return (value * 100).toFixed(1) + '%';
+    }
+
     // Money columns
     const moneyColumns = ['Wager', 'Winnings', 'Payout', 'Potential Payout', 'Potential_Payout'];
     if (moneyColumns.includes(columnName)) {
@@ -135,11 +154,6 @@ function formatValue(value, columnName) {
     const statsColumns = ['Total_Bets', 'Wins', 'Losses', 'Total Bets'];
     if (statsColumns.includes(columnName) && typeof value === 'number') {
         return Math.round(value).toString();
-    }
-    
-    // Price/Odds column special handling
-    if (columnName === 'Price' && typeof value === 'number') {
-        return (value * 100).toFixed(1) + '%';
     }
     
     // Handle arrays (like prop types)
