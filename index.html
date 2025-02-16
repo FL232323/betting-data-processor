@@ -1,59 +1,127 @@
-                    scales: {
-                        x: {
-                            stacked: true
-                        },
-                        y: {
-                            stacked: true
-                        }
-                    }
-                }
-            });
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Betting Data Processor</title>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+    <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+    <style>
+        #dropZone {
+            width: 300px;
+            height: 200px;
+            border: 2px dashed #ccc;
+            text-align: center;
+            padding: 20px;
+            margin: 20px auto;
         }
+        .dragging { background-color: #e1e1e1; border-color: #999; }
+        .data-container { margin: 20px; padding: 20px; }
+        .table-container { 
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .chart-container {
+            margin: 20px auto;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">Betting Data Processor</h1>
+        
+        <div id="dropZone">
+            <p>Drop All_Bets_Export.xls here</p>
+            <small class="text-muted">or click to select</small>
+        </div>
+        
+        <div id="status" class="text-center mb-4"></div>
+        
+        <ul class="nav nav-tabs" id="dataTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="singles-tab" data-bs-toggle="tab" href="#singles">Single Bets</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="parlays-tab" data-bs-toggle="tab" href="#parlays">Parlays</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="legs-tab" data-bs-toggle="tab" href="#legs">Parlay Legs</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="teams-tab" data-bs-toggle="tab" href="#teams">Teams</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="players-tab" data-bs-toggle="tab" href="#players">Players</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="props-tab" data-bs-toggle="tab" href="#props">Props</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="charts-tab" data-bs-toggle="tab" href="#charts">Analytics</a>
+            </li>
+        </ul>
 
-        function createPropTypeChart(data) {
-            if (!data.stats.propPerformance) return;
+        <div class="tab-content" id="dataTabsContent">
+            <div class="tab-pane fade show active" id="singles">
+                <div class="table-container">
+                    <table class="table table-striped" id="singlesTable"></table>
+                </div>
+            </div>
             
-            const propTypes = Object.keys(data.stats.propPerformance);
-            const wins = propTypes.map(prop => data.stats.propPerformance[prop].wins);
-            const losses = propTypes.map(prop => data.stats.propPerformance[prop].losses);
+            <div class="tab-pane fade" id="parlays">
+                <div class="table-container">
+                    <table class="table table-striped" id="parlaysTable"></table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="legs">
+                <div class="table-container">
+                    <table class="table table-striped" id="legsTable"></table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="teams">
+                <div class="chart-container">
+                    <canvas id="teamWinLossChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <table class="table table-striped" id="teamsTable"></table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="players">
+                <div class="chart-container">
+                    <canvas id="playerWinLossChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <table class="table table-striped" id="playersTable"></table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="props">
+                <div class="chart-container">
+                    <canvas id="propTypeChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <table class="table table-striped" id="propsTable"></table>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="charts">
+                <div class="chart-container">
+                    <canvas id="winLossChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="sportsPieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="profitLineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            const ctx = document.getElementById('propTypeChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: propTypes,
-                    datasets: [
-                        {
-                            label: 'Wins',
-                            data: wins,
-                            backgroundColor: '#28a745'
-                        },
-                        {
-                            label: 'Losses',
-                            data: losses,
-                            backgroundColor: '#dc3545'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Prop Type Performance'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            stacked: true
-                        },
-                        y: {
-                            stacked: true
-                        }
-                    }
-                }
-            });
-        }
-    </script>
+    <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js'></script>
+    <script src='js/app.js'></script>
 </body>
 </html>
