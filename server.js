@@ -20,7 +20,11 @@ if (!fs.existsSync('uploads')) {
 
 const upload = multer({ dest: 'uploads/' });
 
-app.use(express.static('.'));
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// Serve static files from the static directory
+app.use('/static', express.static(path.join(__dirname, 'static')));
 
 app.post('/process', upload.single('file'), (req, res) => {
     // Copy uploaded file to All_Bets_Export.xls
@@ -36,20 +40,20 @@ app.post('/process', upload.single('file'), (req, res) => {
         // Run Python script
         exec('python bet_processor.py', async (error, stdout, stderr) => {
             if (error) {
+                console.error('Python Error:', error);
+                console.error('Python stderr:', stderr);
                 res.json({ message: 'Error processing with Python: ' + error });
                 return;
             }
 
             try {
-                // Read all CSV files in parallel
-                const [singles, parlays, legs, teamStats, playerStats, propStats] = await Promise.all([
-                    fs.promises.readFile('single_bets.csv', 'utf8'),
-                    fs.promises.readFile('parlay_headers.csv', 'utf8'),
-                    fs.promises.readFile('parlay_legs.csv', 'utf8'),
-                    fs.promises.readFile('team_stats.csv', 'utf8'),
-                    fs.promises.readFile('player_stats.csv', 'utf8'),
-                    fs.promises.readFile('prop_stats.csv', 'utf8')
-                ]);
+                // Read the processed CSV files
+                const singles = await fs.promises.readFile('single_bets.csv', 'utf8');
+                const parlays = await fs.promises.readFile('parlay_headers.csv', 'utf8');
+                const legs = await fs.promises.readFile('parlay_legs.csv', 'utf8');
+                const teamStats = await fs.promises.readFile('team_stats.csv', 'utf8');
+                const playerStats = await fs.promises.readFile('player_stats.csv', 'utf8');
+                const propStats = await fs.promises.readFile('prop_stats.csv', 'utf8');
 
                 // Parse CSVs using Papa Parse
                 const data = {
@@ -81,7 +85,7 @@ app.post('/process', upload.single('file'), (req, res) => {
                     'prop_stats.csv'
                 ];
 
-                await Promise.all(filesToDelete.map(file => fs.promises.unlink(file)));
+                await Promise.all(filesToDelete.map(file => fs.promises.unlink(file).catch(() => {})));
 
                 res.json({
                     message: 'Processing complete! Data displayed below.',
@@ -111,9 +115,7 @@ function parseCSV(csvString) {
 // Helper function to calculate statistics
 function calculateStats(singles, parlays, teamStats, playerStats, propStats) {
     console.log("\n=== Calculating Statistics ===");
-    console.log("Singles count:", singles.length);
-    console.log("Parlays count:", parlays.length);
-
+    
     const stats = {
         wins: singles.filter(bet => bet.Result === 'Won').length + 
               parlays.filter(bet => bet.Result === 'Won').length,
@@ -124,36 +126,38 @@ function calculateStats(singles, parlays, teamStats, playerStats, propStats) {
             dates: [],
             profits: []
         },
-        // New stats categories
-        teamPerformance: teamStats.reduce((acc, team) => {
-            acc[team.Team] = {
-                wins: team.Wins,
-                losses: team.Losses,
-                totalBets: team.Total_Bets
-            };
-            return acc;
-        }, {}),
-        playerPerformance: playerStats.reduce((acc, player) => {
-            acc[player.Player] = {
-                wins: player.Wins,
-                losses: player.Losses,
-                totalBets: player.Total_Bets,
-                mostCommonProp: player.Most_Common_Prop
-            };
-            return acc;
-        }, {}),
-        propPerformance: propStats.reduce((acc, prop) => {
-            acc[prop.PropType] = {
-                wins: prop.Wins,
-                losses: prop.Losses,
-                totalBets: prop.Total_Bets
-            };
-            return acc;
-        }, {})
+        teamPerformance: {},
+        playerPerformance: {},
+        propPerformance: {}
     };
 
-    console.log("Wins:", stats.wins);
-    console.log("Losses:", stats.losses);
+    // Add team performance
+    teamStats.forEach(team => {
+        stats.teamPerformance[team.Team] = {
+            wins: team.Wins,
+            losses: team.Losses,
+            totalBets: team.Total_Bets
+        };
+    });
+
+    // Add player performance
+    playerStats.forEach(player => {
+        stats.playerPerformance[player.Player] = {
+            wins: player.Wins,
+            losses: player.Losses,
+            totalBets: player.Total_Bets,
+            propTypes: player.Prop_Types
+        };
+    });
+
+    // Add prop performance
+    propStats.forEach(prop => {
+        stats.propPerformance[prop.PropType] = {
+            wins: prop.Wins,
+            losses: prop.Losses,
+            totalBets: prop.Total_Bets
+        };
+    });
 
     // Calculate sports distribution
     singles.concat(parlays).forEach(bet => {
@@ -161,8 +165,6 @@ function calculateStats(singles, parlays, teamStats, playerStats, propStats) {
             stats.sportsDist[bet.League] = (stats.sportsDist[bet.League] || 0) + 1;
         }
     });
-
-    console.log("Sports distribution:", stats.sportsDist);
 
     // Calculate profit timeline
     const allBets = [...singles, ...parlays]
