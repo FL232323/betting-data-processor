@@ -23,55 +23,29 @@ class BetProcessor:
 
     def extract_teams(self, match_str):
         """Extract teams from match string"""
-        if isinstance(match_str, str) and ' vs ' in match_str:
-            return match_str.split(' vs ')
-        return [None, None]
-
-    def extract_player(self, market_str):
-        """Extract player name from market string"""
-        if isinstance(market_str, str):
-            # Common patterns for player names in markets
-            player_patterns = [
-                r'^([A-Za-z\s]+)\s+-\s+',  # Player Name - Rest of market
-                r'^([A-Za-z\s]+)\s+Over',   # Player Name Over
-                r'^([A-Za-z\s]+)\s+Under'   # Player Name Under
-            ]
-            for pattern in player_patterns:
-                match = re.match(pattern, market_str)
-                if match:
-                    return match.group(1).strip()
-        return None
-
-    def classify_prop_type(self, market_str):
-        """Classify the type of prop bet"""
-        if not isinstance(market_str, str):
-            return 'Unknown'
+        if not isinstance(match_str, str):
+            return []
         
-        market_lower = market_str.lower()
-        if 'touchdown' in market_lower or 'td' in market_lower:
-            return 'Touchdown'
-        elif 'passing yards' in market_lower:
-            return 'Passing Yards'
-        elif 'rushing yards' in market_lower:
-            return 'Rushing Yards'
-        elif 'receiving yards' in market_lower:
-            return 'Receiving Yards'
-        elif 'points' in market_lower:
-            return 'Points'
-        elif 'rebounds' in market_lower:
-            return 'Rebounds'
-        elif 'assists' in market_lower:
-            return 'Assists'
-        elif 'spread' in market_lower:
-            return 'Spread'
-        elif 'moneyline' in market_lower:
-            return 'Moneyline'
-        elif 'over/under' in market_lower or 'total' in market_lower:
-            return 'Total'
-        return 'Other'
+        match_str = match_str.strip()
+        if ' vs ' in match_str:
+            teams = [team.strip() for team in match_str.split(' vs ')]
+            return teams
+        return []
+
+    def extract_player_and_prop(self, market_str):
+        """Extract player name and prop type from market string"""
+        if not isinstance(market_str, str):
+            return None, None
+        
+        if ' - ' in market_str:
+            parts = market_str.split(' - ', 1)
+            player = parts[0].strip()
+            prop_type = parts[1].strip() if len(parts) > 1 else None
+            return player, prop_type
+        return None, None
 
     def process_csv(self, filepath):
-        """Process the single-column CSV file"""
+        """Process the CSV file"""
         print("Reading CSV file...")
         df = pd.read_csv(filepath, header=None, names=['Data'])
         data = df['Data'].tolist()
@@ -80,7 +54,8 @@ class BetProcessor:
         current_position = 13
 
         while current_position < len(data):
-            if self.is_date(data[current_position]):
+            curr_value = data[current_position]
+            if self.is_date(curr_value):
                 bet_info = data[current_position:current_position + 13]
                 current_position += 13
 
@@ -100,40 +75,28 @@ class BetProcessor:
                 current_position += 1
 
     def _process_single_bet(self, bet_info):
-        """Process a single bet entry with enhanced categorization"""
+        """Process a single bet entry"""
         if len(bet_info) == 13:
             bet_dict = dict(zip(self.headers, bet_info))
             
-            # Extract teams
-            team1, team2 = self.extract_teams(bet_dict.get('Match', ''))
-            bet_dict['Team1'] = team1
-            bet_dict['Team2'] = team2
-            
-            # Extract player and prop type
-            bet_dict['Player'] = self.extract_player(bet_dict.get('Market', ''))
-            bet_dict['PropType'] = self.classify_prop_type(bet_dict.get('Market', ''))
-            
+            # Add to singles DataFrame
             self.single_bets_df = pd.concat([
                 self.single_bets_df,
                 pd.DataFrame([bet_dict])
             ], ignore_index=True)
 
     def _process_parlay(self, bet_info, bet_id, data, current_position):
-        """Process a parlay bet and its legs with enhanced categorization"""
+        """Process a parlay bet and its legs"""
         bet_dict = dict(zip(self.headers, bet_info))
         bet_dict['Bet Slip ID'] = bet_id
         
-        # Add categorization to parlay header
-        team1, team2 = self.extract_teams(bet_dict.get('Match', ''))
-        bet_dict['Team1'] = team1
-        bet_dict['Team2'] = team2
-        
+        # Add to parlays DataFrame
         self.parlay_headers_df = pd.concat([
             self.parlay_headers_df,
             pd.DataFrame([bet_dict])
         ], ignore_index=True)
 
-        num_legs = bet_dict['Match'].count(',') + 1 if isinstance(bet_dict['Match'], str) else 0
+        num_legs = bet_dict.get('Match', '').count(',') + 1 if isinstance(bet_dict.get('Match'), str) else 0
         leg_num = 1
 
         while leg_num <= num_legs and current_position + 7 <= len(data):
@@ -154,12 +117,16 @@ class BetProcessor:
                 'Game_Date': leg_data[6]
             }
             
-            # Add categorization to leg
-            team1, team2 = self.extract_teams(leg_dict['Match'])
-            leg_dict['Team1'] = team1
-            leg_dict['Team2'] = team2
-            leg_dict['Player'] = self.extract_player(leg_dict['Market'])
-            leg_dict['PropType'] = self.classify_prop_type(leg_dict['Market'])
+            # Extract teams from match
+            teams = self.extract_teams(leg_dict['Match'])
+            if teams:
+                leg_dict['Team1'] = teams[0]
+                leg_dict['Team2'] = teams[1]
+            
+            # Extract player and prop type
+            player, prop_type = self.extract_player_and_prop(leg_dict['Market'])
+            leg_dict['Player'] = player
+            leg_dict['PropType'] = prop_type
 
             self.parlay_legs_df = pd.concat([
                 self.parlay_legs_df,
@@ -173,73 +140,136 @@ class BetProcessor:
 
     def generate_team_stats(self):
         """Generate team-based statistics"""
-        all_bets = pd.concat([
-            self.single_bets_df[['Team1', 'Team2', 'Result', 'Wager', 'Winnings']],
-            self.parlay_legs_df[['Team1', 'Team2', 'Status', 'Price']]
+        all_teams = pd.concat([
+            self.parlay_legs_df[['Team1', 'Team2', 'Status', 'League']].assign(source='parlay'),
+            self.single_bets_df[['Team1', 'Team2', 'Result', 'League']].assign(source='single')
         ])
         
-        team_stats = []
-        unique_teams = pd.unique(all_bets[['Team1', 'Team2']].values.ravel())
+        # Melt the DataFrame to get one row per team
+        team_data = []
         
-        for team in unique_teams:
-            if pd.isna(team):
-                continue
-                
-            team_bets = all_bets[(all_bets['Team1'] == team) | (all_bets['Team2'] == team)]
-            stats = {
-                'Team': team,
-                'Total_Bets': len(team_bets),
-                'Wins': len(team_bets[team_bets['Result'] == 'Won']),
-                'Losses': len(team_bets[team_bets['Result'] == 'Lost'])
-            }
-            team_stats.append(stats)
+        for _, row in all_teams.iterrows():
+            if pd.notna(row['Team1']):
+                result = row['Status'] if row['source'] == 'parlay' else row['Result']
+                team_data.append({
+                    'Team': row['Team1'],
+                    'League': row['League'],
+                    'Result': result
+                })
+            if pd.notna(row['Team2']):
+                result = row['Status'] if row['source'] == 'parlay' else row['Result']
+                team_data.append({
+                    'Team': row['Team2'],
+                    'League': row['League'],
+                    'Result': result
+                })
         
-        self.team_stats_df = pd.DataFrame(team_stats)
+        team_df = pd.DataFrame(team_data)
+        
+        if not team_df.empty:
+            team_stats = team_df.groupby('Team').agg({
+                'Result': lambda x: {
+                    'Total_Bets': len(x),
+                    'Wins': len(x[x.isin(['Won', 'Win'])]),
+                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                }
+            }).reset_index()
+            
+            # Expand the aggregated dictionary
+            team_stats = pd.concat([
+                team_stats['Team'],
+                pd.DataFrame(team_stats['Result'].tolist())
+            ], axis=1)
+            
+            self.team_stats_df = team_stats
 
     def generate_player_stats(self):
         """Generate player-based statistics"""
-        all_bets = pd.concat([
-            self.single_bets_df[['Player', 'Result', 'Wager', 'Winnings', 'PropType']],
-            self.parlay_legs_df[['Player', 'Status', 'Price', 'PropType']]
-        ])
+        player_data = []
         
-        player_stats = []
-        unique_players = pd.unique(all_bets['Player'].dropna())
+        # Process parlay legs
+        for _, leg in self.parlay_legs_df.iterrows():
+            if pd.notna(leg['Player']):
+                player_data.append({
+                    'Player': leg['Player'],
+                    'PropType': leg['PropType'],
+                    'Result': leg['Status'],
+                    'Market': leg['Market'],
+                    'Selection': leg['Selection'],
+                    'Price': leg['Price']
+                })
         
-        for player in unique_players:
-            player_bets = all_bets[all_bets['Player'] == player]
-            stats = {
-                'Player': player,
-                'Total_Bets': len(player_bets),
-                'Wins': len(player_bets[player_bets['Result'] == 'Won']),
-                'Losses': len(player_bets[player_bets['Result'] == 'Lost']),
-                'Most_Common_Prop': player_bets['PropType'].mode().iloc[0] if not player_bets['PropType'].empty else 'Unknown'
-            }
-            player_stats.append(stats)
+        # Process singles
+        for _, bet in self.single_bets_df.iterrows():
+            player, prop_type = self.extract_player_and_prop(bet.get('Market', ''))
+            if player:
+                player_data.append({
+                    'Player': player,
+                    'PropType': prop_type,
+                    'Result': bet['Result'],
+                    'Market': bet['Market'],
+                    'Selection': bet['Selection'],
+                    'Price': bet['Price']
+                })
         
-        self.player_stats_df = pd.DataFrame(player_stats)
+        if player_data:
+            player_df = pd.DataFrame(player_data)
+            player_stats = player_df.groupby('Player').agg({
+                'Result': lambda x: {
+                    'Total_Bets': len(x),
+                    'Wins': len(x[x.isin(['Won', 'Win'])]),
+                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                },
+                'PropType': lambda x: list(set(x))
+            }).reset_index()
+            
+            # Expand the aggregated dictionary
+            player_stats = pd.concat([
+                player_stats['Player'],
+                pd.DataFrame(player_stats['Result'].tolist()),
+                player_stats['PropType'].rename('Prop_Types')
+            ], axis=1)
+            
+            self.player_stats_df = player_stats
 
     def generate_prop_stats(self):
         """Generate prop type statistics"""
-        all_bets = pd.concat([
-            self.single_bets_df[['PropType', 'Result', 'Wager', 'Winnings']],
-            self.parlay_legs_df[['PropType', 'Status', 'Price']]
-        ])
+        prop_data = []
         
-        prop_stats = []
-        unique_props = pd.unique(all_bets['PropType'].dropna())
+        # Process parlay legs
+        for _, leg in self.parlay_legs_df.iterrows():
+            if pd.notna(leg['PropType']):
+                prop_data.append({
+                    'PropType': leg['PropType'],
+                    'Result': leg['Status']
+                })
         
-        for prop in unique_props:
-            prop_bets = all_bets[all_bets['PropType'] == prop]
-            stats = {
-                'PropType': prop,
-                'Total_Bets': len(prop_bets),
-                'Wins': len(prop_bets[prop_bets['Result'] == 'Won']),
-                'Losses': len(prop_bets[prop_bets['Result'] == 'Lost'])
-            }
-            prop_stats.append(stats)
+        # Process singles
+        for _, bet in self.single_bets_df.iterrows():
+            _, prop_type = self.extract_player_and_prop(bet.get('Market', ''))
+            if prop_type:
+                prop_data.append({
+                    'PropType': prop_type,
+                    'Result': bet['Result']
+                })
         
-        self.prop_stats_df = pd.DataFrame(prop_stats)
+        if prop_data:
+            prop_df = pd.DataFrame(prop_data)
+            prop_stats = prop_df.groupby('PropType').agg({
+                'Result': lambda x: {
+                    'Total_Bets': len(x),
+                    'Wins': len(x[x.isin(['Won', 'Win'])]),
+                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                }
+            }).reset_index()
+            
+            # Expand the aggregated dictionary
+            prop_stats = pd.concat([
+                prop_stats['PropType'],
+                pd.DataFrame(prop_stats['Result'].tolist())
+            ], axis=1)
+            
+            self.prop_stats_df = prop_stats
 
     def save_to_csv(self, output_directory="."):
         """Save all DataFrames to separate CSV files"""
@@ -254,7 +284,7 @@ class BetProcessor:
         self.generate_player_stats()
         self.generate_prop_stats()
 
-        # Save all files
+        # Save files
         file_paths = {
             'single_bets': f"{output_directory}/single_bets.csv",
             'parlay_headers': f"{output_directory}/parlay_headers.csv",
@@ -264,12 +294,19 @@ class BetProcessor:
             'prop_stats': f"{output_directory}/prop_stats.csv"
         }
 
-        self.single_bets_df.to_csv(file_paths['single_bets'], index=False)
-        self.parlay_headers_df.to_csv(file_paths['parlay_headers'], index=False)
-        self.parlay_legs_df.to_csv(file_paths['parlay_legs'], index=False)
-        self.team_stats_df.to_csv(file_paths['team_stats'], index=False)
-        self.player_stats_df.to_csv(file_paths['player_stats'], index=False)
-        self.prop_stats_df.to_csv(file_paths['prop_stats'], index=False)
+        # Save each DataFrame
+        if not self.single_bets_df.empty:
+            self.single_bets_df.to_csv(file_paths['single_bets'], index=False)
+        if not self.parlay_headers_df.empty:
+            self.parlay_headers_df.to_csv(file_paths['parlay_headers'], index=False)
+        if not self.parlay_legs_df.empty:
+            self.parlay_legs_df.to_csv(file_paths['parlay_legs'], index=False)
+        if not self.team_stats_df.empty:
+            self.team_stats_df.to_csv(file_paths['team_stats'], index=False)
+        if not self.player_stats_df.empty:
+            self.player_stats_df.to_csv(file_paths['player_stats'], index=False)
+        if not self.prop_stats_df.empty:
+            self.prop_stats_df.to_csv(file_paths['prop_stats'], index=False)
         
         return file_paths
 
@@ -278,12 +315,15 @@ def process_betting_data(input_csv, output_directory="."):
     processor.process_csv(input_csv)
     file_paths = processor.save_to_csv(output_directory)
     
-    print(f"Processed {len(processor.single_bets_df)} single bets")
-    print(f"Processed {len(processor.parlay_headers_df)} parlays")
-    print(f"Processed {len(processor.parlay_legs_df)} parlay legs")
-    print(f"Generated {len(processor.team_stats_df)} team statistics")
-    print(f"Generated {len(processor.player_stats_df)} player statistics")
-    print(f"Generated {len(processor.prop_stats_df)} prop type statistics")
+    # Print processing summary
+    print(f"\nProcessing Summary:")
+    print(f"Single Bets: {len(processor.single_bets_df)}")
+    print(f"Parlays: {len(processor.parlay_headers_df)}")
+    print(f"Parlay Legs: {len(processor.parlay_legs_df)}")
+    print(f"Teams Analyzed: {len(processor.team_stats_df)}")
+    print(f"Players Analyzed: {len(processor.player_stats_df)}")
+    print(f"Prop Types Analyzed: {len(processor.prop_stats_df)}")
+    
     print("\nFiles created:")
     for file_type, path in file_paths.items():
         print(f"- {file_type}: {path}")
