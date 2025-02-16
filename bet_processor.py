@@ -156,21 +156,20 @@ class BetProcessor:
         
         if team_data:
             team_df = pd.DataFrame(team_data)
+            # Convert to absolute counts
             team_stats = team_df.groupby('Team').agg({
                 'Result': lambda x: {
-                    'Total_Bets': len(x),
-                    'Wins': len(x[x.isin(['Won', 'Win'])]),
-                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                    'Total_Bets': int(len(x)),
+                    'Wins': int(len(x[x.isin(['Won', 'Win'])])),
+                    'Losses': int(len(x[x.isin(['Lost', 'Lose'])]))
                 }
             }).reset_index()
             
-            # Expand the aggregated dictionary
-            team_stats = pd.concat([
+            # Expand the results to columns
+            self.team_stats_df = pd.concat([
                 team_stats['Team'],
                 pd.DataFrame(team_stats['Result'].tolist())
             ], axis=1)
-            
-            self.team_stats_df = team_stats
 
     def generate_player_stats(self):
         """Generate player-based statistics"""
@@ -204,23 +203,22 @@ class BetProcessor:
         
         if player_data:
             player_df = pd.DataFrame(player_data)
+            # Convert to absolute counts
             player_stats = player_df.groupby('Player').agg({
                 'Result': lambda x: {
-                    'Total_Bets': len(x),
-                    'Wins': len(x[x.isin(['Won', 'Win'])]),
-                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                    'Total_Bets': int(len(x)),
+                    'Wins': int(len(x[x.isin(['Won', 'Win'])])),
+                    'Losses': int(len(x[x.isin(['Lost', 'Lose'])]))
                 },
                 'PropType': lambda x: list(set(filter(None, x)))
             }).reset_index()
             
-            # Expand the aggregated dictionary
-            player_stats = pd.concat([
+            # Expand the results to columns
+            self.player_stats_df = pd.concat([
                 player_stats['Player'],
                 pd.DataFrame(player_stats['Result'].tolist()),
                 player_stats['PropType'].rename('Prop_Types')
             ], axis=1)
-            
-            self.player_stats_df = player_stats
 
     def generate_prop_stats(self):
         """Generate prop type statistics"""
@@ -246,21 +244,20 @@ class BetProcessor:
         
         if prop_data:
             prop_df = pd.DataFrame(prop_data)
+            # Convert to absolute counts
             prop_stats = prop_df.groupby('PropType').agg({
                 'Result': lambda x: {
-                    'Total_Bets': len(x),
-                    'Wins': len(x[x.isin(['Won', 'Win'])]),
-                    'Losses': len(x[x.isin(['Lost', 'Lose'])])
+                    'Total_Bets': int(len(x)),
+                    'Wins': int(len(x[x.isin(['Won', 'Win'])])),
+                    'Losses': int(len(x[x.isin(['Lost', 'Lose'])]))
                 }
             }).reset_index()
             
-            # Expand the aggregated dictionary
-            prop_stats = pd.concat([
+            # Expand the results to columns
+            self.prop_stats_df = pd.concat([
                 prop_stats['PropType'],
                 pd.DataFrame(prop_stats['Result'].tolist())
             ], axis=1)
-            
-            self.prop_stats_df = prop_stats
 
     def save_to_csv(self, output_directory="."):
         """Save all DataFrames to separate CSV files"""
