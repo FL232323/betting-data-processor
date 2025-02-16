@@ -99,7 +99,8 @@ function populateTable(tableId, data) {
     // Create header
     const thead = document.createElement('thead');
     const headerRow = document.createElement('tr');
-    Object.keys(data[0]).forEach(key => {
+    const columns = Object.keys(data[0]);
+    columns.forEach(key => {
         const th = document.createElement('th');
         th.textContent = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
         headerRow.appendChild(th);
@@ -111,9 +112,9 @@ function populateTable(tableId, data) {
     const tbody = document.createElement('tbody');
     data.forEach(row => {
         const tr = document.createElement('tr');
-        Object.values(row).forEach(value => {
+        columns.forEach(column => {
             const td = document.createElement('td');
-            td.textContent = formatValue(value);
+            td.textContent = formatValue(row[column], column);
             tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -121,19 +122,34 @@ function populateTable(tableId, data) {
     table.appendChild(tbody);
 }
 
-function formatValue(value) {
+function formatValue(value, columnName) {
     if (value === null || value === undefined) return '-';
+    
+    // Money columns
+    const moneyColumns = ['Wager', 'Winnings', 'Payout', 'Potential Payout', 'Potential_Payout'];
+    if (moneyColumns.includes(columnName)) {
+        return value ? `$${parseFloat(value).toFixed(2)}` : '$0.00';
+    }
+    
+    // Stats columns (Teams, Players, Props)
+    const statsColumns = ['Total_Bets', 'Wins', 'Losses', 'Total Bets'];
+    if (statsColumns.includes(columnName) && typeof value === 'number') {
+        return Math.round(value).toString();
+    }
+    
+    // Price/Odds column special handling
+    if (columnName === 'Price' && typeof value === 'number') {
+        return (value * 100).toFixed(1) + '%';
+    }
+    
+    // Handle arrays (like prop types)
+    if (Array.isArray(value)) {
+        return value.join(', ');
+    }
+    
+    // Default handling
     if (typeof value === 'number') {
-        // Format percentages
-        if (value > 1 && value <= 100) {
-            return value.toFixed(1) + '%';
-        }
-        // Format currency
-        if (value >= 100 || value <= -100) {
-            return '$' + value.toFixed(2);
-        }
-        // Format decimals
-        return value.toFixed(2);
+        return value.toString();
     }
     if (typeof value === 'boolean') {
         return value ? 'Yes' : 'No';
@@ -191,6 +207,14 @@ function createWinLossChart(data, ctx) {
                 legend: {
                     display: false
                 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
             }
         }
     });
@@ -219,6 +243,15 @@ function createSportsPieChart(data, ctx) {
                 title: {
                     display: true,
                     text: 'Sports Distribution'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            return `${label}: ${value} bets`;
+                        }
+                    }
                 }
             }
         }
@@ -298,7 +331,10 @@ function createTeamChart(data, ctx) {
                 x: { stacked: true },
                 y: { 
                     stacked: true,
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }
@@ -342,7 +378,10 @@ function createPlayerChart(data, ctx) {
                 x: { stacked: true },
                 y: { 
                     stacked: true,
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }
@@ -386,7 +425,10 @@ function createPropTypeChart(data, ctx) {
                 x: { stacked: true },
                 y: { 
                     stacked: true,
-                    beginAtZero: true
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }
