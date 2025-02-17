@@ -1,7 +1,7 @@
 /* Drop zone styles */
 #dropZone {
     width: 100%;
-    height: 200px;
+    min-height: 200px;
     border: 2px dashed #ccc;
     border-radius: 8px;
     display: flex;
@@ -11,11 +11,18 @@
     cursor: pointer;
     margin: 20px 0;
     transition: all 0.3s ease;
+    background-color: #f8f9fa;
+    padding: 20px;
 }
 
 #dropZone.dragging {
     border-color: #007bff;
     background-color: rgba(0, 123, 255, 0.1);
+}
+
+#dropZone:hover {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.05);
 }
 
 #dropZone p {
@@ -26,12 +33,27 @@
 
 #dropZone small {
     color: #999;
+    margin-top: 5px;
 }
 
-/* Table styles */
-.table-container {
-    margin-top: 20px;
-    overflow-x: auto;
+/* Status message styles */
+#status {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+}
+
+#status.error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+#status.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
 }
 
 /* Parlay expansion styles */
@@ -83,52 +105,28 @@
     transition: background-color 0.5s;
 }
 
-/* Navigation animation */
-.tab-pane.fade {
-    transition: opacity 0.15s linear;
+/* Table styles */
+.table-container {
+    margin-top: 20px;
+    overflow-x: auto;
 }
 
-.tab-pane.fade.show {
-    opacity: 1;
+/* Tab navigation */
+.nav-tabs {
+    margin-bottom: 20px;
 }
 
-/* Loading state */
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
-}
-
-/* Status message */
-#status {
-    display: none;
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 4px;
-}
-
-#status.error {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
-}
-
-#status.success {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
-}
-
-/* Responsive table adjustments */
+/* Responsive adjustments */
 @media (max-width: 768px) {
+    #dropZone {
+        min-height: 150px;
+    }
+    
     .parlay-legs {
         margin: 0 10px;
     }
     
     .table-container {
-        overflow-x: auto;
-    }
-    
-    #dropZone {
-        height: 150px;
+        margin-top: 10px;
     }
 }
