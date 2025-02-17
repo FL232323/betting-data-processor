@@ -21,19 +21,15 @@ function initializeFileHandling() {
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        e.stopPropagation();
         dropZone.classList.add('dragging');
     });
 
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+    dropZone.addEventListener('dragleave', () => {
         dropZone.classList.remove('dragging');
     });
 
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
-        e.stopPropagation();
         dropZone.classList.remove('dragging');
         const file = e.dataTransfer.files[0];
         await handleFileUpload(file);
@@ -76,4 +72,4 @@ async function handleFileUpload(file) {
     }
 }
 
-[Rest of your existing app.js code for tables, charts, etc.]
+[... rest of the file with parlay features ...]
