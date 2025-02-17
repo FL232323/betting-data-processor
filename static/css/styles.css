@@ -1,62 +1,51 @@
-/* Drop zone styles */
+/* Main styles */
 #dropZone {
-    width: 100%;
-    min-height: 200px;
+    width: 300px;
+    height: 200px;
     border: 2px dashed #ccc;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    margin: 20px 0;
-    transition: all 0.3s ease;
-    background-color: #f8f9fa;
-    padding: 20px;
-}
-
-#dropZone.dragging {
-    border-color: #007bff;
-    background-color: rgba(0, 123, 255, 0.1);
-}
-
-#dropZone:hover {
-    border-color: #007bff;
-    background-color: rgba(0, 123, 255, 0.05);
-}
-
-#dropZone p {
-    margin: 0;
-    font-size: 1.2em;
-    color: #666;
-}
-
-#dropZone small {
-    color: #999;
-    margin-top: 5px;
-}
-
-/* Status message styles */
-#status {
-    margin: 10px 0;
-    padding: 10px;
-    border-radius: 4px;
     text-align: center;
+    padding: 20px;
+    margin: 20px auto;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-#status.error {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
+.dragging { 
+    background-color: #e1e1e1; 
+    border-color: #999; 
 }
 
-#status.success {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+.data-container { 
+    margin: 20px; 
+    padding: 20px; 
 }
 
-/* Parlay expansion styles */
+.table-container { 
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.chart-container {
+    margin: 20px auto;
+    height: 400px;
+    max-width: 800px;
+}
+
+.tab-content {
+    padding: 20px 0;
+}
+
+/* Table styles */
+.table th {
+    position: sticky;
+    top: 0;
+    background: white;
+    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+    z-index: 1;
+}
+
+/* Parlay specific styles */
 .parlay-row {
     position: relative;
     cursor: pointer;
@@ -99,34 +88,41 @@
     background-color: #e9ecef;
 }
 
-/* Highlighting styles */
 .highlighted {
     background-color: #fff3cd !important;
     transition: background-color 0.5s;
 }
 
-/* Table styles */
-.table-container {
-    margin-top: 20px;
-    overflow-x: auto;
+/* Status message styles */
+#status {
+    transition: all 0.3s ease;
 }
 
-/* Tab navigation */
-.nav-tabs {
-    margin-bottom: 20px;
+#status.error {
+    color: #dc3545;
+}
+
+#status.success {
+    color: #28a745;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    .chart-container {
+        height: 300px;
+        margin: 10px auto;
+    }
+    
+    .table-container {
+        max-height: 300px;
+    }
+    
     #dropZone {
-        min-height: 150px;
+        width: 90%;
+        max-width: 300px;
     }
     
     .parlay-legs {
         margin: 0 10px;
-    }
-    
-    .table-container {
-        margin-top: 10px;
     }
 }
