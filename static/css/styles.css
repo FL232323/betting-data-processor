@@ -1,4 +1,38 @@
-/* Existing styles */
+/* Drop zone styles */
+#dropZone {
+    width: 100%;
+    height: 200px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    margin: 20px 0;
+    transition: all 0.3s ease;
+}
+
+#dropZone.dragging {
+    border-color: #007bff;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+#dropZone p {
+    margin: 0;
+    font-size: 1.2em;
+    color: #666;
+}
+
+#dropZone small {
+    color: #999;
+}
+
+/* Table styles */
+.table-container {
+    margin-top: 20px;
+    overflow-x: auto;
+}
 
 /* Parlay expansion styles */
 .parlay-row {
@@ -64,6 +98,26 @@
     pointer-events: none;
 }
 
+/* Status message */
+#status {
+    display: none;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+#status.error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+#status.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
 /* Responsive table adjustments */
 @media (max-width: 768px) {
     .parlay-legs {
@@ -72,5 +126,9 @@
     
     .table-container {
         overflow-x: auto;
+    }
+    
+    #dropZone {
+        height: 150px;
     }
 }
