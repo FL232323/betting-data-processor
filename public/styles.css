@@ -1,0 +1,26 @@
+.table-summary-row {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    border-top: 2px solid #dee2e6;
+}
+
+.table-summary-row td {
+    padding: 12px 8px;
+}
+
+.table-summary-label {
+    font-style: italic;
+    color: #495057;
+}
+
+/* Ensure summary row stays at bottom of table */
+.table-container {
+    position: relative;
+}
+
+.table-summary-row {
+    position: sticky;
+    bottom: 0;
+    background: #f8f9fa;
+    z-index: 10;
+}
