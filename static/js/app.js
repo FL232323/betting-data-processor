@@ -1,131 +1,62 @@
-// Keeping all existing code exactly as is until the displayData function
-[Previous code remains exactly the same until displayData function]
+// This should continue the toggleParlayLegs function right where we left off...
 
-function displayData(data) {
-    if (!data) return;
-
-    // Store parlay legs for quick access
-    parlayLegsMap.clear();
-    if (data.legs) {
-        data.legs.forEach(leg => {
-            if (!parlayLegsMap.has(leg.Parlay_ID)) {
-                parlayLegsMap.set(leg.Parlay_ID, []);
-            }
-            parlayLegsMap.get(leg.Parlay_ID).push(leg);
-        });
-    }
-
-    // Create a map to store team bets for quick access
-    const teamBetsMap = new Map();
-    
-    // Process single bets for teams
-    if (data.singles) {
-        data.singles.forEach(bet => {
-            const match = bet.Match || '';
-            if (match.includes(' vs ')) {
-                const teams = match.split(' vs ').map(team => team.trim());
-                teams.forEach(team => {
-                    if (!teamBetsMap.has(team)) {
-                        teamBetsMap.set(team, { singles: [], parlayLegs: [] });
-                    }
-                    teamBetsMap.get(team).singles.push(bet);
-                });
-            }
-        });
-    }
-
-    // Process parlay legs for teams
-    if (data.legs) {
-        data.legs.forEach(leg => {
-            const match = leg.Match || '';
-            if (match.includes(' vs ')) {
-                const teams = match.split(' vs ').map(team => team.trim());
-                teams.forEach(team => {
-                    if (!teamBetsMap.has(team)) {
-                        teamBetsMap.set(team, { singles: [], parlayLegs: [] });
-                    }
-                    teamBetsMap.get(team).parlayLegs.push(leg);
-                });
-            }
-        });
-    }
-
-    const tables = {
-        singles: 'singlesTable',
-        parlays: 'parlaysTable',
-        legs: 'legsTable',
-        teamStats: 'teamsTable',
-        playerStats: 'playersTable',
-        propStats: 'propsTable'
-    };
-
-    for (const [key, tableId] of Object.entries(tables)) {
-        if (data[key] && Array.isArray(data[key]) && data[key].length > 0) {
-            if (key === 'parlays') {
-                populateParlaysTable(tableId, data[key]);
-            } else if (key === 'teamStats') {
-                populateTeamsTable(tableId, data[key], teamBetsMap);
-            } else {
-                populateTable(tableId, data[key]);
-            }
-        }
-    }
-}
-
-function populateTeamsTable(tableId, data, teamBetsMap) {
-    const table = document.getElementById(tableId);
-    if (!table || !data || !data.length) return;
-
-    table.innerHTML = '';
-    
-    // Create header
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    const columns = Object.keys(data[0]);
-    columns.forEach(key => {
+    const legColumns = ['Leg Number', 'Status', 'League', 'Match', 'Market', 'Selection', 'Price', 'Game Date', 'Navigation'];
+    legColumns.forEach(col => {
         const th = document.createElement('th');
-        th.textContent = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
-        headerRow.appendChild(th);
+        th.textContent = col;
+        legsHeaderRow.appendChild(th);
     });
+    legsHeader.appendChild(legsHeaderRow);
+    legsTable.appendChild(legsHeader);
     
-    // Add action column
-    const actionTh = document.createElement('th');
-    actionTh.textContent = 'Actions';
-    headerRow.appendChild(actionTh);
-    
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // Create body
-    const tbody = document.createElement('tbody');
-    data.forEach(row => {
-        // Main team row
-        const tr = document.createElement('tr');
-        columns.forEach(column => {
+    // Add legs body
+    const legsBody = document.createElement('tbody');
+    legs.forEach(leg => {
+        const legRow = document.createElement('tr');
+        
+        // Add regular columns
+        legColumns.slice(0, -1).forEach(col => {
             const td = document.createElement('td');
-            td.textContent = formatValue(row[column], column, tableId);
-            tr.appendChild(td);
+            const key = col.replace(/ /g, '_');
+            td.textContent = formatValue(leg[key], key, 'legsTable');
+            legRow.appendChild(td);
         });
 
-        // Add expand/collapse button if team has bets
-        const actionTd = document.createElement('td');
-        const teamName = row.Team;
-        const teamBets = teamBetsMap.get(teamName);
+        // Add navigation links
+        const navTd = document.createElement('td');
         
-        if (teamBets && (teamBets.singles.length > 0 || teamBets.parlayLegs.length > 0)) {
-            const expandBtn = document.createElement('button');
-            expandBtn.className = 'btn btn-sm btn-outline-primary';
-            expandBtn.textContent = 'Show Bets';
-            expandBtn.onclick = () => toggleTeamBets(tr, teamName, teamBets);
-            actionTd.appendChild(expandBtn);
+        // Check if it's a player prop
+        const market = leg.Market || '';
+        if (market.includes(' - ')) {
+            const [playerName] = market.split(' - ');
+            const navLink = createNavLink('Go to Player', () => navigateToPlayer(playerName.trim()));
+            navTd.appendChild(navLink);
         }
-        
-        tr.appendChild(actionTd);
-        tbody.appendChild(tr);
+
+        // Check if it's a team bet
+        const match = leg.Match || '';
+        if (match.includes(' vs ')) {
+            const teams = match.split(' vs ').map(team => team.trim());
+            teams.forEach((team, index) => {
+                if (index > 0) {
+                    navTd.appendChild(document.createTextNode(' | '));
+                }
+                const navLink = createNavLink(`Go to ${team}`, () => navigateToTeam(team));
+                navTd.appendChild(navLink);
+            });
+        }
+
+        legRow.appendChild(navTd);
+        legsBody.appendChild(legRow);
     });
-    table.appendChild(tbody);
+    legsTable.appendChild(legsBody);
+    
+    legsCell.appendChild(legsTable);
+    legsRow.appendChild(legsCell);
+    parlayRow.parentNode.insertBefore(legsRow, parlayRow.nextSibling);
 }
 
+// Function to toggle team bets display
 function toggleTeamBets(teamRow, teamName, teamBets) {
     const existingBetsRow = teamRow.nextElementSibling;
     const expandBtn = teamRow.querySelector('button');
@@ -228,4 +159,8 @@ function toggleTeamBets(teamRow, teamName, teamBets) {
     teamRow.parentNode.insertBefore(betsRow, teamRow.nextSibling);
 }
 
-[Rest of the existing code remains exactly the same, including all event handlers, navigation functions, and formatting functions]
+// Chart creation function
+function createCharts() {
+    // We'll implement charts later
+    console.log("Charts will be implemented later");
+}
