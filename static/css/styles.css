@@ -69,6 +69,35 @@
     padding: 0.5rem;
 }
 
+/* Team bets styles */
+.team-bets {
+    background-color: #f8f9fa;
+}
+
+.team-bets td {
+    padding: 1rem !important;
+}
+
+.team-bets .table {
+    margin-bottom: 0;
+    background-color: transparent;
+}
+
+.team-bets .table th {
+    background-color: #e9ecef;
+    font-size: 0.9em;
+}
+
+.team-bets .table td {
+    font-size: 0.9em;
+    padding: 0.5rem;
+}
+
+.team-bets h6 {
+    color: #495057;
+    font-weight: 600;
+}
+
 /* Navigation styles */
 .btn-link {
     padding: 0.25rem 0.5rem;
