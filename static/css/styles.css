@@ -69,6 +69,28 @@
     padding: 0.5rem;
 }
 
+/* Navigation styles */
+.btn-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+/* Highlight effect for navigation */
+@keyframes highlight {
+    0% { background-color: transparent; }
+    50% { background-color: #fff3cd; }
+    100% { background-color: transparent; }
+}
+
+.highlight {
+    animation: highlight 2s ease-in-out;
+}
+
 /* Status message styles */
 #status {
     transition: all 0.3s ease;
