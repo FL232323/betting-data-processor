@@ -45,6 +45,30 @@
     z-index: 1;
 }
 
+/* Parlay specific styles */
+.parlay-legs {
+    background-color: #f8f9fa;
+}
+
+.parlay-legs td {
+    padding: 0 !important;
+}
+
+.parlay-legs .table {
+    margin-bottom: 0;
+    background-color: transparent;
+}
+
+.parlay-legs .table th {
+    background-color: #e9ecef;
+    font-size: 0.9em;
+}
+
+.parlay-legs .table td {
+    font-size: 0.9em;
+    padding: 0.5rem;
+}
+
 /* Status message styles */
 #status {
     transition: all 0.3s ease;
