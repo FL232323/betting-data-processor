@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betting Data Processor</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Betting Data Processor</h1>
+    
+    <div class="upload-container">
+        <div class="upload-area" id="dropZone">
+            Drop All_Bets_Export.xls here
+            <br>
+            or click to select
+        </div>
+        <div class="status-message">Processing complete! Data displayed below.</div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="singleBets">Single Bets</button>
+        <button class="tab-btn" data-tab="parlays">Parlays</button>
+        <button class="tab-btn" data-tab="parlayLegs">Parlay Legs</button>
+        <button class="tab-btn" data-tab="teams">Teams</button>
+        <button class="tab-btn" data-tab="players">Players</button>
+        <button class="tab-btn" data-tab="props">Props</button>
+        <button class="tab-btn" data-tab="analytics">Analytics</button>
+    </div>
+
+    <div class="table-container active" id="singleBets">
+        <!-- Single bets table will be inserted here -->
+    </div>
+
+    <div class="table-container" id="parlays">
+        <!-- Parlays table will be inserted here -->
+    </div>
+
+    <div class="table-container" id="parlayLegs">
+        <!-- Parlay legs table will be inserted here -->
+    </div>
+
+    <!-- Additional tab content containers -->
+
+    <script src="js/table-summary.js"></script>
+    <script src="app.js"></script>
+    
+    <script>
+        // Initialize summary rows after tables are populated
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update summaries when data is loaded
+            document.addEventListener('dataLoaded', () => {
+                window.tableSummary.update('singleBetsTable');
+                window.tableSummary.update('parlaysTable');
+                window.tableSummary.update('parlayLegsTable');
+            });
+
+            // Update summaries when tabs are switched
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tableId = btn.dataset.tab + 'Table';
+                    window.tableSummary.update(tableId);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
