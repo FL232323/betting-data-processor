@@ -135,6 +135,13 @@ function populateTable(tableId, data) {
     table.appendChild(tbody);
 }
 
+function getParalayLegWinRatio(parlayId) {
+    const legs = parlayLegsMap.get(parlayId) || [];
+    const totalLegs = legs.length;
+    const wonLegs = legs.filter(leg => leg.Status === 'Win').length;
+    return `${wonLegs}/${totalLegs}`;
+}
+
 function populateParlaysTable(tableId, data) {
     const table = document.getElementById(tableId);
     if (!table || !data || !data.length) return;
@@ -150,6 +157,11 @@ function populateParlaysTable(tableId, data) {
         th.textContent = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
         headerRow.appendChild(th);
     });
+    
+    // Add leg record column header
+    const legRecordTh = document.createElement('th');
+    legRecordTh.textContent = 'Leg Record';
+    headerRow.appendChild(legRecordTh);
     
     // Add action column header
     const actionTh = document.createElement('th');
@@ -171,6 +183,11 @@ function populateParlaysTable(tableId, data) {
             td.textContent = formatValue(row[column], column, tableId);
             tr.appendChild(td);
         });
+
+        // Add leg record column
+        const legRecordTd = document.createElement('td');
+        legRecordTd.textContent = getParalayLegWinRatio(row['Bet Slip ID']);
+        tr.appendChild(legRecordTd);
 
         // Add expand/collapse button
         const actionTd = document.createElement('td');
